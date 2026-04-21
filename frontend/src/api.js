@@ -13,11 +13,12 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// On 401 Unauthorized, clear session and redirect to login
+// On 401 Unauthorized, clear session and redirect to login.
+// Pass { skipAuthRedirect: true } in the request config to suppress this for popup/detail calls.
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && !error.config?.skipAuthRedirect) {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       window.location.href = "/";

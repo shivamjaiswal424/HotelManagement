@@ -974,3 +974,194 @@ a { text-decoration: none; color: inherit; }
 .stay-popup-row:last-child { border-bottom: none; padding-bottom: 0; }
 .stay-popup-row span { color: var(--text-muted); }
 .stay-popup-row strong { color: var(--text-primary); }
+
+/* ── Room Detail Popup ───────────────────────── */
+.room-card-clickable { cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; }
+.room-card-clickable:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.4); }
+
+.rdp {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  width: 580px;
+  max-width: 95vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+}
+
+.rdp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--bg-card);
+  z-index: 1;
+}
+.rdp-room-num {
+  font-family: 'Playfair Display', serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.rdp-room-type {
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--bg-input);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.rdp-body { padding: 16px 20px; display: flex; flex-direction: column; gap: 0; }
+
+.rdp-section {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.rdp-section:last-child { border-bottom: none; }
+.rdp-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.rdp-info-grid {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 6px 12px;
+  font-size: 13px;
+}
+.rdp-label { color: var(--text-muted); }
+.rdp-value { color: var(--text-primary); font-weight: 500; }
+
+.rdp-list { display: flex; flex-direction: column; gap: 6px; }
+.rdp-list-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+  padding: 6px 10px;
+  background: var(--bg-input);
+  border-radius: 6px;
+}
+
+.rdp-balance {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 14px;
+  background: var(--bg-input);
+  border-radius: 8px;
+  margin-top: 14px;
+  font-size: 13px;
+}
+.rdp-balance-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.rdp-balance-item span { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.rdp-balance-item strong { font-size: 14px; }
+
+.rdp-actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 16px;
+  flex-wrap: wrap;
+}
+
+.rdp-subpanel {
+  padding: 16px;
+  background: var(--bg-input);
+  border-radius: 10px;
+  margin-top: 4px;
+}
+.rdp-subpanel-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 14px;
+}
+
+.rdp-invoice-header {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+  margin-bottom: 14px;
+}
+.rdp-invoice-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.rdp-invoice-table th {
+  text-align: left;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.rdp-invoice-table td { padding: 7px 8px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.rdp-invoice-total td { border-top: 1px solid var(--border); border-bottom: none; padding-top: 10px; }
+.rdp-invoice-balance td { border-top: 2px solid var(--accent-dim); padding-top: 10px; }
+
+.btn-danger {
+  background: rgba(239,68,68,0.15);
+  border: 1px solid rgba(239,68,68,0.4);
+  color: #f87171;
+}
+.btn-danger:hover { background: rgba(239,68,68,0.25); }
+
+/* ── Light Mode ─────────────────────────────── */
+html.light {
+  --bg-base:       #f0f4f8;
+  --bg-sidebar:    #ffffff;
+  --bg-card:       #ffffff;
+  --bg-card-hover: #f1f5f9;
+  --bg-input:      #f1f5f9;
+  --bg-table-alt:  #f8fafc;
+  --accent:        #9a6f0a;
+  --accent-dim:    #7a580c;
+  --accent-glow:   rgba(154,111,10,0.10);
+  --text-primary:  #111827;
+  --text-secondary:#374151;
+  --text-muted:    #6b7280;
+  --border:        #e2e8f0;
+  --border-light:  #cbd5e1;
+  --shadow:        0 4px 24px rgba(0,0,0,0.08);
+  --shadow-sm:     0 2px 8px rgba(0,0,0,0.05);
+}
+
+html.light body { background-color: var(--bg-base); color: var(--text-primary); }
+
+html.light .sidebar { background: var(--bg-sidebar); box-shadow: 2px 0 8px rgba(0,0,0,0.06); }
+
+html.light .table-wrap thead tr { background: var(--bg-input); }
+
+html.light .login-card { box-shadow: 0 20px 60px rgba(0,0,0,0.12); }
+
+html.light .rdp-invoice-table td { border-bottom-color: var(--border); }
+
+/* Theme toggle button */
+.theme-toggle-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 5px 8px;
+  font-size: 14px;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.theme-toggle-btn:hover {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+  color: var(--accent);
+}

@@ -14,74 +14,125 @@ const COUNTRY_CODES = [
   { code: "+33",  flag: "🇫🇷", label: "FR" },
 ];
 
+const MEAL_PLAN_OPTIONS = [
+  { value: "",    label: "— Select Meal Plan —" },
+  { value: "EP",  label: "EP – Room Only"        },
+  { value: "CP",  label: "CP – With Breakfast"   },
+  { value: "MAP", label: "MAP – Half Board"       },
+  { value: "AP",  label: "AP – Full Board"        },
+];
+
+const SOURCE_OPTIONS = [
+  { value: "",           label: "— Select Source —"  },
+  { value: "PMS",        label: "PMS (Direct)"        },
+  { value: "OTA",        label: "OTA"                 },
+  { value: "WALK_IN",    label: "Walk-in"             },
+  { value: "PHONE",      label: "Phone"               },
+  { value: "EMAIL",      label: "Email"               },
+];
+
+const PAYMENT_OPTIONS = [
+  { value: "",               label: "— Select Payment —" },
+  { value: "CASH",           label: "Cash"               },
+  { value: "CARD",           label: "Card"               },
+  { value: "UPI",            label: "UPI"                },
+  { value: "BANK_TRANSFER",  label: "Bank Transfer"      },
+  { value: "CREDIT",         label: "Credit"             },
+];
+
 export default function CreateReservation() {
-  const [rooms, setRooms]         = useState([]);
-  const [roomId, setRoomId]       = useState("");
+  const [rooms, setRooms]           = useState([]);
+  const [roomId, setRoomId]         = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess]     = useState(false);
-  const [phoneCode, setPhoneCode] = useState("+91");
+  const [success, setSuccess]       = useState(false);
+  const [phoneCode, setPhoneCode]   = useState("+91");
   const [phoneLocal, setPhoneLocal] = useState("");
+  const [rateInfo, setRateInfo]     = useState(null); // { rate, source, ratePlanName }
   const [form, setForm] = useState({
-    guestName: "",
-    guestEmail: "",
-    guestPhone: "",
-    checkInDate: "",
+    guestName:   "",
+    guestEmail:  "",
+    guestPhone:  "",
+    checkInDate:  "",
     checkOutDate: "",
-    guestsCount: 1,
-    amount: "",
+    guestsCount:  1,
+    mealPlan:     "",
+    source:       "",
+    paymentMode:  "",
+    amount:       "",
   });
 
   useEffect(() => {
-    api.get("/rooms").then((res) => {
-      setRooms(res.data.filter((r) => r.status === "AVAILABLE"));
-    });
+    api.get("/rooms").then(res => setRooms(res.data.filter(r => r.status === "AVAILABLE")));
   }, []);
 
-  // Auto-calculate amount when room or dates change
+  // Fetch rate from channel manager whenever room, check-in date, or meal plan changes
   useEffect(() => {
-    if (!roomId || !form.checkInDate || !form.checkOutDate) return;
+    if (!roomId || !form.checkInDate) return;
     const selectedRoom = rooms.find(r => String(r.id) === String(roomId));
     if (!selectedRoom) return;
-    const nights = Math.round(
-      (new Date(form.checkOutDate) - new Date(form.checkInDate)) / 86400000
-    );
-    if (nights > 0) {
-      setForm(prev => ({ ...prev, amount: selectedRoom.basePrice * nights }));
-    }
-  }, [roomId, form.checkInDate, form.checkOutDate]);
+
+    api.get("/channel/applicable-rate", {
+      params: {
+        roomType: selectedRoom.roomType,
+        date:     form.checkInDate,
+        ...(form.mealPlan ? { mealPlan: form.mealPlan } : {}),
+      },
+    }).then(res => {
+      setRateInfo(res.data);
+      const nights = form.checkOutDate
+        ? Math.round((new Date(form.checkOutDate) - new Date(form.checkInDate)) / 86400000)
+        : 0;
+      if (nights > 0) {
+        setForm(prev => ({ ...prev, amount: res.data.rate * nights }));
+      }
+    }).catch(() => {
+      // Fallback to basePrice if API fails
+      const selectedRoom = rooms.find(r => String(r.id) === String(roomId));
+      if (selectedRoom) {
+        setRateInfo({ rate: selectedRoom.basePrice, source: "BASE_PRICE", ratePlanName: "" });
+        const nights = form.checkOutDate
+          ? Math.round((new Date(form.checkOutDate) - new Date(form.checkInDate)) / 86400000)
+          : 0;
+        if (nights > 0) setForm(prev => ({ ...prev, amount: selectedRoom.basePrice * nights }));
+      }
+    });
+  }, [roomId, form.checkInDate, form.checkOutDate, form.mealPlan]);
 
   // Combine country code + local number into guestPhone
   useEffect(() => {
     setForm(prev => ({ ...prev, guestPhone: phoneLocal ? `${phoneCode} ${phoneLocal}` : "" }));
   }, [phoneCode, phoneLocal]);
 
-  const set = (field) => (e) => setForm({ ...form, [field]: e.target.value });
+  const set = field => e => setForm({ ...form, [field]: e.target.value });
 
   const submit = async () => {
-    if (!roomId) { alert("Please select a room"); return; }
+    if (!roomId)                { alert("Please select a room"); return; }
     if (!form.guestName.trim()) { alert("Guest name is required"); return; }
     if (!form.checkInDate || !form.checkOutDate) { alert("Check-in and check-out dates are required"); return; }
-    if (form.checkOutDate <= form.checkInDate) { alert("Check-out date must be after check-in date"); return; }
+    if (form.checkOutDate <= form.checkInDate)   { alert("Check-out date must be after check-in date"); return; }
     setSubmitting(true);
     try {
       await api.post(`/reservations?roomId=${roomId}`, form);
       setSuccess(true);
-      setForm({ guestName: "", guestEmail: "", guestPhone: "", checkInDate: "", checkOutDate: "", guestsCount: 1, amount: "" });
+      setForm({ guestName: "", guestEmail: "", guestPhone: "", checkInDate: "", checkOutDate: "",
+                guestsCount: 1, mealPlan: "", source: "", paymentMode: "", amount: "" });
       setRoomId("");
       setPhoneLocal("");
       setPhoneCode("+91");
-      api.get("/rooms").then((res) => setRooms(res.data.filter((r) => r.status === "AVAILABLE")));
+      setRateInfo(null);
+      api.get("/rooms").then(res => setRooms(res.data.filter(r => r.status === "AVAILABLE")));
       setTimeout(() => setSuccess(false), 4000);
     } finally {
       setSubmitting(false);
     }
   };
 
-  const today = new Date().toISOString().split("T")[0];
+  const today        = new Date().toISOString().split("T")[0];
   const selectedRoom = rooms.find(r => String(r.id) === String(roomId));
   const nights = form.checkInDate && form.checkOutDate
     ? Math.round((new Date(form.checkOutDate) - new Date(form.checkInDate)) / 86400000)
     : 0;
+  const nightlyRate = rateInfo?.rate ?? selectedRoom?.basePrice ?? 0;
 
   return (
     <div>
@@ -102,9 +153,9 @@ export default function CreateReservation() {
           </div>
         )}
 
-        <div className="card" style={{ maxWidth: 680 }}>
+        <div className="card" style={{ maxWidth: 720 }}>
+          {/* ── Guest Information ── */}
           <div className="section-heading" style={{ marginBottom: 20 }}>Guest Information</div>
-
           <div className="form-grid" style={{ marginBottom: 16 }}>
             <div className="form-group">
               <label className="form-label">Guest Name *</label>
@@ -113,57 +164,46 @@ export default function CreateReservation() {
             <div className="form-group">
               <label className="form-label">Phone</label>
               <div style={{ display: "flex", gap: 8 }}>
-                <select
-                  className="form-select"
-                  style={{ width: 100, flex: "0 0 100px" }}
-                  value={phoneCode}
-                  onChange={e => setPhoneCode(e.target.value)}
-                >
+                <select className="form-select" style={{ width: 100, flex: "0 0 100px" }}
+                  value={phoneCode} onChange={e => setPhoneCode(e.target.value)}>
                   {COUNTRY_CODES.map(c => (
-                    <option key={c.code} value={c.code}>
-                      {c.flag} {c.code}
-                    </option>
+                    <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
                   ))}
                 </select>
-                <input
-                  className="form-input"
-                  type="tel"
-                  placeholder="98765 43210"
+                <input className="form-input" type="tel" placeholder="98765 43210"
                   value={phoneLocal}
                   onChange={e => setPhoneLocal(e.target.value.replace(/[^\d\s\-]/g, ""))}
-                  style={{ flex: 1 }}
-                />
+                  style={{ flex: 1 }} />
               </div>
             </div>
             <div className="form-group" style={{ gridColumn: "1 / -1" }}>
               <label className="form-label">Email</label>
-              <input className="form-input" type="email" placeholder="guest@email.com" value={form.guestEmail} onChange={set("guestEmail")} />
+              <input className="form-input" type="email" placeholder="guest@email.com"
+                value={form.guestEmail} onChange={set("guestEmail")} />
             </div>
           </div>
 
+          {/* ── Booking Details ── */}
           <div className="section-heading" style={{ marginBottom: 20 }}>Booking Details</div>
-
           <div className="form-grid" style={{ marginBottom: 16 }}>
             <div className="form-group">
               <label className="form-label">Check-in Date</label>
-              <input className="form-input" type="date" min={today} value={form.checkInDate} onChange={set("checkInDate")} />
+              <input className="form-input" type="date" min={today}
+                value={form.checkInDate} onChange={set("checkInDate")} />
             </div>
             <div className="form-group">
               <label className="form-label">Check-out Date</label>
-              <input
-                className="form-input" type="date"
+              <input className="form-input" type="date"
                 min={form.checkInDate || today}
-                value={form.checkOutDate}
-                onChange={set("checkOutDate")}
-              />
+                value={form.checkOutDate} onChange={set("checkOutDate")} />
             </div>
             <div className="form-group">
               <label className="form-label">Room *</label>
-              <select className="form-select" value={roomId} onChange={(e) => setRoomId(e.target.value)}>
+              <select className="form-select" value={roomId} onChange={e => setRoomId(e.target.value)}>
                 <option value="">Select available room</option>
-                {rooms.map((r) => (
+                {rooms.map(r => (
                   <option key={r.id} value={r.id}>
-                    Room {r.roomNumber} — {r.roomType?.replace("_", " ")} (₹{r.basePrice?.toLocaleString()}/night)
+                    Room {r.roomNumber} — {r.roomType?.replace(/_/g, " ")}
                   </option>
                 ))}
               </select>
@@ -171,19 +211,43 @@ export default function CreateReservation() {
             <div className="form-group">
               <label className="form-label">Guests Count</label>
               <input className="form-input" type="number" min="1" value={form.guestsCount}
-                onChange={(e) => setForm({ ...form, guestsCount: parseInt(e.target.value) })} />
+                onChange={e => setForm({ ...form, guestsCount: parseInt(e.target.value) })} />
             </div>
-            <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+            <div className="form-group">
+              <label className="form-label">Meal Plan</label>
+              <select className="form-select" value={form.mealPlan} onChange={set("mealPlan")}>
+                {MEAL_PLAN_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Booking Source</label>
+              <select className="form-select" value={form.source} onChange={set("source")}>
+                {SOURCE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Payment Mode</label>
+              <select className="form-select" value={form.paymentMode} onChange={set("paymentMode")}>
+                {PAYMENT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
               <label className="form-label">
                 Amount (₹)
-                {selectedRoom && nights > 0 && (
-                  <span style={{ marginLeft: 8, fontWeight: 400, color: "var(--text-muted)", fontSize: 12 }}>
-                    Auto-calculated: ₹{selectedRoom.basePrice.toLocaleString()} × {nights} night{nights !== 1 ? "s" : ""}
+                {nightlyRate > 0 && nights > 0 && (
+                  <span style={{ marginLeft: 8, fontWeight: 400, fontSize: 12,
+                    color: rateInfo?.source === "RATE_CALENDAR" ? "var(--accent)" : "var(--text-muted)" }}>
+                    ₹{nightlyRate.toLocaleString()} × {nights} night{nights !== 1 ? "s" : ""}
+                    {rateInfo?.source === "RATE_CALENDAR" && (
+                      <span style={{ marginLeft: 4, color: "#4ade80" }}>
+                        ✓ {rateInfo.ratePlanName || "Channel Rate"}
+                      </span>
+                    )}
                   </span>
                 )}
               </label>
               <input className="form-input" type="number" min="0" value={form.amount}
-                onChange={(e) => setForm({ ...form, amount: parseFloat(e.target.value) })} />
+                onChange={e => setForm({ ...form, amount: parseFloat(e.target.value) })} />
             </div>
           </div>
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom";
 
 import Dashboard             from "./pages/Dashboard";
@@ -30,7 +30,7 @@ const navItems3 = [
   { to: "/channel-bulk-update", icon: "⚡",  label: "Channel Manager" },
 ];
 
-function Sidebar({ user, onLogout }) {
+function Sidebar({ user, onLogout, theme, onToggleTheme }) {
   const navLink = (item) => (
     <NavLink
       key={item.to}
@@ -62,7 +62,6 @@ function Sidebar({ user, onLogout }) {
         {navItems3.map(navLink)}
       </nav>
 
-      {/* Logged-in user + logout */}
       <div className="sidebar-user-panel">
         <div className="sidebar-user-info">
           <div className="sidebar-user-avatar">
@@ -73,6 +72,13 @@ function Sidebar({ user, onLogout }) {
             <span className="sidebar-user-role">{user?.role}</span>
           </div>
         </div>
+        <button
+          className="theme-toggle-btn"
+          onClick={onToggleTheme}
+          title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
+        >
+          {theme === "dark" ? "☀" : "☾"}
+        </button>
         <button className="sidebar-logout-btn" onClick={onLogout} title="Logout">
           ⏻
         </button>
@@ -86,6 +92,13 @@ export default function App() {
     try { return JSON.parse(localStorage.getItem("user")); } catch { return null; }
   });
 
+  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("light", theme === "light");
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
   const handleLogin = (data) => {
     const u = { username: data.username, fullName: data.fullName, role: data.role };
     setUser(u);
@@ -97,14 +110,16 @@ export default function App() {
     setUser(null);
   };
 
+  const handleToggleTheme = () => setTheme(t => t === "dark" ? "light" : "dark");
+
   if (!user || !localStorage.getItem("token")) {
     return <LoginPage onLogin={handleLogin} />;
   }
 
   return (
     <BrowserRouter>
-      <div style={{ display: "flex", minHeight: "100vh" }}>
-        <Sidebar user={user} onLogout={handleLogout} />
+      <div style={{ display: "flex", minHeight: "100vh", width: "100%" }}>
+        <Sidebar user={user} onLogout={handleLogout} theme={theme} onToggleTheme={handleToggleTheme} />
         <div className="main-content">
           <Routes>
             <Route path="/"                    element={<Dashboard />}              />

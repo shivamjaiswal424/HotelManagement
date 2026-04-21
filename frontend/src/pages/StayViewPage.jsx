@@ -13,6 +13,8 @@ const STATUS_COLORS = {
   CANCELED:    { bg: "#7f1d1d", border: "#ef4444", text: "#fecaca" },
 };
 
+const isUnavailable = (status) => status === "OUT_OF_ORDER" || status === "MAINTENANCE";
+
 function addDays(dateStr, n) {
   const d = new Date(dateStr + "T00:00:00");
   d.setDate(d.getDate() + n);
@@ -39,7 +41,8 @@ export default function StayViewPage() {
   const [rooms, setRooms]         = useState([]);
   const [stayData, setStayData]   = useState([]);
   const [loading, setLoading]     = useState(false);
-  const [selected, setSelected]   = useState(null); // clicked reservation
+  const [selected, setSelected]   = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const dates = Array.from({ length: NUM_DAYS }, (_, i) => addDays(startDate, i));
   const endDate = addDays(startDate, NUM_DAYS - 1);
@@ -59,6 +62,24 @@ export default function StayViewPage() {
   }, [startDate, endDate]);
 
   useEffect(() => { load(); }, [load]);
+
+  const doCheckIn = async (id) => {
+    setActionLoading(true);
+    try {
+      const res = await api.put(`/reservations/${id}/checkin`);
+      if (res.status === 200) { setSelected(null); load(); }
+    } catch (err) {
+      alert(err.response?.data?.message || "Check-in failed.");
+    } finally { setActionLoading(false); }
+  };
+
+  const doCheckOut = async (id) => {
+    setActionLoading(true);
+    try {
+      await api.put(`/reservations/${id}/checkout`);
+      setSelected(null); load();
+    } finally { setActionLoading(false); }
+  };
 
   // Group rooms by type
   const roomsByType = rooms.reduce((acc, r) => {
@@ -85,13 +106,15 @@ export default function StayViewPage() {
     return { left, width, colors };
   };
 
-  // Count available rooms per date
+  const unavailableRooms = rooms.filter(r => isUnavailable(r.status)).length;
+
+  // Count available rooms per date (exclude OOO/maintenance rooms)
   const availablePerDate = dates.map(d => {
     const occupied = stayData.filter(s =>
       s.checkIn <= d && s.checkOut > d &&
       (s.status === "BOOKED" || s.status === "CHECKED_IN")
     ).length;
-    return rooms.length - occupied;
+    return rooms.length - occupied - unavailableRooms;
   });
 
   const totalRooms    = rooms.length;
@@ -169,11 +192,26 @@ export default function StayViewPage() {
                 {/* Room rows */}
                 {typeRooms.sort((a, b) => a.roomNumber.localeCompare(b.roomNumber, undefined, { numeric: true })).map(room => {
                   const roomResvs = resvForRoom(room.roomNumber);
+                  const ooo = isUnavailable(room.status);
+                  const dotClass = room.status === "AVAILABLE" ? "dot-green"
+                                 : room.status === "OCCUPIED"  ? "dot-red"
+                                 : "dot-yellow";
                   return (
-                    <div key={room.roomNumber} className="stay-room-row">
+                    <div key={room.roomNumber} className="stay-room-row"
+                      style={ooo ? { background: "rgba(239,68,68,0.04)" } : {}}>
                       <div className="stay-room-cell">
                         <span className="stay-room-no">{room.roomNumber}</span>
-                        <span className={"stay-room-dot " + (room.status === "AVAILABLE" ? "dot-green" : room.status === "OCCUPIED" ? "dot-red" : "dot-yellow")} />
+                        <span className={"stay-room-dot " + dotClass} />
+                        {ooo && (
+                          <span style={{
+                            fontSize: 9, fontWeight: 700, letterSpacing: "0.04em",
+                            color: "#ef4444", background: "rgba(239,68,68,0.15)",
+                            border: "1px solid rgba(239,68,68,0.4)",
+                            borderRadius: 3, padding: "1px 4px", marginLeft: 4,
+                          }}>
+                            {room.status === "MAINTENANCE" ? "MAINT" : "OOO"}
+                          </span>
+                        )}
                       </div>
                       {/* Timeline */}
                       <div className="stay-timeline" style={{ width: NUM_DAYS * CELL_W }}>
@@ -182,6 +220,19 @@ export default function StayViewPage() {
                           <div key={d} className={"stay-day-bg" + (d === today ? " today-col" : "")}
                                style={{ left: i * CELL_W, width: CELL_W }} />
                         ))}
+                        {/* OOO hatched overlay */}
+                        {ooo && (
+                          <div style={{
+                            position: "absolute", inset: 2,
+                            backgroundImage: "repeating-linear-gradient(135deg, rgba(239,68,68,0.18) 0px, rgba(239,68,68,0.18) 2px, transparent 2px, transparent 10px)",
+                            borderRadius: 3, pointerEvents: "none", zIndex: 1,
+                            display: "flex", alignItems: "center", paddingLeft: 10,
+                          }}>
+                            <span style={{ fontSize: 11, fontWeight: 600, color: "#ef4444", opacity: 0.85 }}>
+                              {room.status === "MAINTENANCE" ? "Under Maintenance" : "Out of Order"}
+                            </span>
+                          </div>
+                        )}
                         {/* Reservation bars */}
                         {roomResvs.map(resv => {
                           const bar = getBar(resv);
@@ -195,6 +246,7 @@ export default function StayViewPage() {
                                 background: bar.colors.bg,
                                 border: `1px solid ${bar.colors.border}`,
                                 color: bar.colors.text,
+                                zIndex: 2,
                               }}
                               onClick={() => setSelected(resv)}
                               title={`${resv.guestName} | ${resv.checkIn} → ${resv.checkOut}`}
@@ -245,6 +297,35 @@ export default function StayViewPage() {
                     {selected.status?.replace("_", " ")}
                   </strong>
                 </div>
+              </div>
+              {/* Actions */}
+              <div style={{ display: "flex", gap: 8, padding: "12px 0 0", borderTop: "1px solid var(--border)", marginTop: 4 }}>
+                {selected.status === "BOOKED" && selected.checkIn <= today && (
+                  <button
+                    className="btn btn-success btn-sm"
+                    style={{ flex: 1 }}
+                    disabled={actionLoading}
+                    onClick={() => doCheckIn(selected.reservationId)}
+                  >
+                    {actionLoading ? "…" : "✓ Check In"}
+                  </button>
+                )}
+                {selected.status === "BOOKED" && selected.checkIn > today && (
+                  <span style={{ fontSize: 12, color: "var(--text-muted)", padding: "6px 0" }}>
+                    Check-in available on {selected.checkIn}
+                  </span>
+                )}
+                {selected.status === "CHECKED_IN" && (
+                  <button
+                    className="btn btn-danger btn-sm"
+                    style={{ flex: 1 }}
+                    disabled={actionLoading}
+                    onClick={() => doCheckOut(selected.reservationId)}
+                  >
+                    {actionLoading ? "…" : "✓ Check Out"}
+                  </button>
+                )}
+                <button className="btn btn-secondary btn-sm" onClick={() => setSelected(null)}>Close</button>
               </div>
             </div>
           </div>
