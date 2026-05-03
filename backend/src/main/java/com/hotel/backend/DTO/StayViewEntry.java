@@ -20,4 +20,6 @@ public class StayViewEntry {
     private String status;
     private Double amount;
     private Integer guestsCount;
+    private String mealPlan;
+    private String source;
 }

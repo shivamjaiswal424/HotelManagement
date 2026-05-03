@@ -142,6 +142,8 @@ public class ReservationController {
                         .status(r.getStatus().name())
                         .amount(r.getAmount())
                         .guestsCount(r.getGuestsCount())
+                        .mealPlan(r.getMealPlan() != null ? r.getMealPlan().name() : null)
+                        .source(r.getSource() != null ? r.getSource().name() : null)
                         .build())
                 .collect(Collectors.toList());
         return ResponseEntity.ok(result);

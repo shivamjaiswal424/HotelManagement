@@ -47,7 +47,6 @@ export default function CreateReservation() {
   const [success, setSuccess]       = useState(false);
   const [phoneCode, setPhoneCode]   = useState("+91");
   const [phoneLocal, setPhoneLocal] = useState("");
-  const [rateInfo, setRateInfo]     = useState(null); // { rate, source, ratePlanName }
   const [form, setForm] = useState({
     guestName:   "",
     guestEmail:  "",
@@ -58,45 +57,12 @@ export default function CreateReservation() {
     mealPlan:     "",
     source:       "",
     paymentMode:  "",
-    amount:       "",
   });
 
   useEffect(() => {
     api.get("/rooms").then(res => setRooms(res.data.filter(r => r.status === "AVAILABLE")));
   }, []);
 
-  // Fetch rate from channel manager whenever room, check-in date, or meal plan changes
-  useEffect(() => {
-    if (!roomId || !form.checkInDate) return;
-    const selectedRoom = rooms.find(r => String(r.id) === String(roomId));
-    if (!selectedRoom) return;
-
-    api.get("/channel/applicable-rate", {
-      params: {
-        roomType: selectedRoom.roomType,
-        date:     form.checkInDate,
-        ...(form.mealPlan ? { mealPlan: form.mealPlan } : {}),
-      },
-    }).then(res => {
-      setRateInfo(res.data);
-      const nights = form.checkOutDate
-        ? Math.round((new Date(form.checkOutDate) - new Date(form.checkInDate)) / 86400000)
-        : 0;
-      if (nights > 0) {
-        setForm(prev => ({ ...prev, amount: res.data.rate * nights }));
-      }
-    }).catch(() => {
-      // Fallback to basePrice if API fails
-      const selectedRoom = rooms.find(r => String(r.id) === String(roomId));
-      if (selectedRoom) {
-        setRateInfo({ rate: selectedRoom.basePrice, source: "BASE_PRICE", ratePlanName: "" });
-        const nights = form.checkOutDate
-          ? Math.round((new Date(form.checkOutDate) - new Date(form.checkInDate)) / 86400000)
-          : 0;
-        if (nights > 0) setForm(prev => ({ ...prev, amount: selectedRoom.basePrice * nights }));
-      }
-    });
-  }, [roomId, form.checkInDate, form.checkOutDate, form.mealPlan]);
 
   // Combine country code + local number into guestPhone
   useEffect(() => {
@@ -112,14 +78,13 @@ export default function CreateReservation() {
     if (form.checkOutDate <= form.checkInDate)   { alert("Check-out date must be after check-in date"); return; }
     setSubmitting(true);
     try {
-      await api.post(`/reservations?roomId=${roomId}`, form);
+      await api.post(`/reservations?roomId=${roomId}`, { ...form, amount: nightlyRate * nights });
       setSuccess(true);
       setForm({ guestName: "", guestEmail: "", guestPhone: "", checkInDate: "", checkOutDate: "",
-                guestsCount: 1, mealPlan: "", source: "", paymentMode: "", amount: "" });
+                guestsCount: 1, mealPlan: "", source: "", paymentMode: "" });
       setRoomId("");
       setPhoneLocal("");
       setPhoneCode("+91");
-      setRateInfo(null);
       api.get("/rooms").then(res => setRooms(res.data.filter(r => r.status === "AVAILABLE")));
       setTimeout(() => setSuccess(false), 4000);
     } finally {
@@ -127,12 +92,13 @@ export default function CreateReservation() {
     }
   };
 
-  const today        = new Date().toISOString().split("T")[0];
+  const _d = new Date();
+  const today = `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,"0")}-${String(_d.getDate()).padStart(2,"0")}`;
   const selectedRoom = rooms.find(r => String(r.id) === String(roomId));
   const nights = form.checkInDate && form.checkOutDate
     ? Math.round((new Date(form.checkOutDate) - new Date(form.checkInDate)) / 86400000)
     : 0;
-  const nightlyRate = rateInfo?.rate ?? selectedRoom?.basePrice ?? 0;
+  const nightlyRate = selectedRoom?.basePrice ?? 0;
 
   return (
     <div>
@@ -231,23 +197,29 @@ export default function CreateReservation() {
                 {PAYMENT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
-            <div className="form-group">
-              <label className="form-label">
-                Amount (₹)
-                {nightlyRate > 0 && nights > 0 && (
-                  <span style={{ marginLeft: 8, fontWeight: 400, fontSize: 12,
-                    color: rateInfo?.source === "RATE_CALENDAR" ? "var(--accent)" : "var(--text-muted)" }}>
-                    ₹{nightlyRate.toLocaleString()} × {nights} night{nights !== 1 ? "s" : ""}
-                    {rateInfo?.source === "RATE_CALENDAR" && (
-                      <span style={{ marginLeft: 4, color: "#4ade80" }}>
-                        ✓ {rateInfo.ratePlanName || "Channel Rate"}
-                      </span>
-                    )}
+            <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+              <label className="form-label">Amount</label>
+              <div style={{
+                padding: "12px 16px", borderRadius: "var(--radius-sm)",
+                background: "var(--accent-glow)", border: "1px solid var(--accent)",
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                flexWrap: "wrap", gap: 8,
+              }}>
+                {nights > 0 && nightlyRate > 0 ? (
+                  <>
+                    <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+                      ₹{nightlyRate.toLocaleString("en-IN")}/night × {nights} night{nights !== 1 ? "s" : ""}
+                    </span>
+                    <span style={{ fontSize: 18, fontWeight: 700, color: "var(--accent)" }}>
+                      ₹{(nightlyRate * nights).toLocaleString("en-IN")}
+                    </span>
+                  </>
+                ) : (
+                  <span style={{ fontSize: 13, color: "var(--text-muted)", fontStyle: "italic" }}>
+                    Select a room and dates to see the amount
                   </span>
                 )}
-              </label>
-              <input className="form-input" type="number" min="0" value={form.amount}
-                onChange={e => setForm({ ...form, amount: parseFloat(e.target.value) })} />
+              </div>
             </div>
           </div>
 

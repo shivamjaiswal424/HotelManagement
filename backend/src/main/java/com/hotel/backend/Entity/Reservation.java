@@ -43,7 +43,4 @@ public class Reservation {
 
     @Enumerated(EnumType.STRING)
     private PaymentMode paymentMode;
-
-    @Column(unique = true)
-    private String externalBookingId; // OTA booking UID (e.g. from iCal)
 }

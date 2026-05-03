@@ -18,7 +18,6 @@ const fmtAmt = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
 export default function RoomsView() {
   const [rooms, setRooms]             = useState([]);
   const [reservations, setReservations] = useState([]);
-  const [todayRates, setTodayRates]   = useState({});
   const [filter, setFilter]           = useState("ALL");
   const [selected, setSelected]       = useState(null);
   const [res, setRes]                 = useState(null);
@@ -35,14 +34,12 @@ export default function RoomsView() {
   const [exchRoomId, setExchRoomId]   = useState("");
 
   const loadRooms = useCallback(async () => {
-    const [roomsRes, resRes, ratesRes] = await Promise.all([
+    const [roomsRes, resRes] = await Promise.all([
       api.get("/rooms"),
       api.get("/reservations"),
-      api.get("/channel/today-rates").catch(() => ({ data: {} })),
     ]);
     setRooms(roomsRes.data);
     setReservations(resRes.data);
-    setTodayRates(ratesRes.data || {});
   }, []);
 
   useEffect(() => { loadRooms(); }, [loadRooms]);
@@ -140,7 +137,7 @@ export default function RoomsView() {
       const { data: newSvc } = await api.post(`/reservations/${res.id}/services`, {
         description: svcForm.description,
         amount:      parseFloat(svcForm.amount),
-        chargeDate:  new Date().toISOString().split("T")[0],
+        chargeDate:  (() => { const _d = new Date(); return `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,"0")}-${String(_d.getDate()).padStart(2,"0")}`; })(),
       }, SA);
       setServices(prev => [...prev, newSvc]);
       setSvcForm({ description: "", amount: "" });
@@ -157,7 +154,7 @@ export default function RoomsView() {
         amount:      parseFloat(pymForm.amount),
         paymentMode: pymForm.paymentMode,
         remarks:     pymForm.remarks,
-        paymentDate: new Date().toISOString().split("T")[0],
+        paymentDate: (() => { const _d = new Date(); return `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,"0")}-${String(_d.getDate()).padStart(2,"0")}`; })(),
       }, SA);
       setPayments(prev => [...prev, newPym]);
       setPymForm({ amount: "", paymentMode: "CASH", remarks: "" });
@@ -240,18 +237,8 @@ export default function RoomsView() {
                   <span className={"badge " + meta.badge} style={{ marginTop: 4 }}>
                     <span className={"room-status-dot " + meta.dot} />{meta.label}
                   </span>
-                  <div style={{ marginTop: 8, fontSize: 12 }}>
-                    {(() => {
-                      const rateData = todayRates[room.roomType];
-                      const rate = rateData?.rate ?? room.basePrice;
-                      const fromCal = rateData?.fromCalendar;
-                      return (
-                        <span style={{ color: fromCal ? "var(--accent)" : "var(--text-muted)" }}>
-                          ₹{Number(rate).toLocaleString()}/night
-                          {fromCal && <span style={{ fontSize: 10, marginLeft: 3, color: "#4ade80" }}>★</span>}
-                        </span>
-                      );
-                    })()}
+                  <div style={{ marginTop: 8, fontSize: 12, color: "var(--text-muted)" }}>
+                    ₹{Number(room.basePrice).toLocaleString()}/night
                   </div>
                   {room.status === "OCCUPIED" && (
                     <div style={{ marginTop: 6, fontSize: 11, color: "var(--accent)", fontStyle: "italic" }}>
@@ -286,23 +273,12 @@ export default function RoomsView() {
               {/* Available / Maintenance rooms */}
               {selected.status !== "OCCUPIED" && (
                 <div>
-                  {(() => {
-                    const rateData = todayRates[selected.roomType];
-                    const rate = rateData?.rate ?? selected.basePrice;
-                    const fromCal = rateData?.fromCalendar;
-                    return (
-                      <p style={{ color: "var(--text-secondary)", marginBottom: 16 }}>
-                        <span style={{ color: fromCal ? "var(--accent)" : "var(--text-secondary)", fontWeight: 600 }}>
-                          ₹{Number(rate).toLocaleString()}/night
-                        </span>
-                        {fromCal && <span style={{ fontSize: 11, color: "#4ade80", marginLeft: 6 }}>★ Channel rate</span>}
-                        {!fromCal && <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 6 }}>Base rate</span>}
-                        <span style={{ color: "var(--text-muted)", marginLeft: 6 }}>
-                          · {selected.roomType?.replace(/_/g, " ")}
-                        </span>
-                      </p>
-                    );
-                  })()}
+                  <p style={{ color: "var(--text-secondary)", marginBottom: 16 }}>
+                    <span style={{ fontWeight: 600 }}>₹{Number(selected.basePrice).toLocaleString()}/night</span>
+                    <span style={{ color: "var(--text-muted)", marginLeft: 6 }}>
+                      · {selected.roomType?.replace(/_/g, " ")}
+                    </span>
+                  </p>
                   {(selected.status === "AVAILABLE") && (
                     <div style={{ display: "flex", gap: 8 }}>
                       <button className="btn btn-secondary btn-sm"
@@ -572,14 +548,11 @@ export default function RoomsView() {
                         <label className="form-label">Target Room</label>
                         <select className="form-input" value={exchRoomId}
                           onChange={e => setExchRoomId(e.target.value)}>
-                          {availRooms.map(r => {
-                            const rate = todayRates[r.roomType]?.rate ?? r.basePrice;
-                            return (
-                              <option key={r.id} value={r.id}>
-                                {r.roomNumber} — {r.roomType?.replace(/_/g, " ")} (₹{Number(rate).toLocaleString()}/night)
-                              </option>
-                            );
-                          })}
+                          {availRooms.map(r => (
+                            <option key={r.id} value={r.id}>
+                              {r.roomNumber} — {r.roomType?.replace(/_/g, " ")} (₹{Number(r.basePrice).toLocaleString()}/night)
+                            </option>
+                          ))}
                         </select>
                       </div>
                       <div style={{ display: "flex", gap: 8 }}>

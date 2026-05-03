@@ -54,6 +54,17 @@ public class ReservationService {
     public Reservation checkOut(Long reservationId) {
         Reservation reservation = reservationRepository.findById(reservationId)
                 .orElseThrow(() -> new RuntimeException("Reservation not found"));
+
+        LocalDate today = LocalDate.now();
+        // Early checkout: update date and recalculate amount for actual nights stayed
+        if (today.isBefore(reservation.getCheckOutDate())) {
+            long actualNights = java.time.temporal.ChronoUnit.DAYS.between(reservation.getCheckInDate(), today);
+            reservation.setCheckOutDate(today);
+            if (actualNights > 0 && reservation.getRoom() != null) {
+                reservation.setAmount(reservation.getRoom().getBasePrice() * actualNights);
+            }
+        }
+
         reservation.setStatus(ReservationStatus.CHECKED_OUT);
         Room room = reservation.getRoom();
         room.setRoomStatus(RoomStatus.AVAILABLE);

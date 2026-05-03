@@ -600,8 +600,10 @@ function PaymentVoidView() {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function ReportsPage() {
-  const today    = new Date().toISOString().split("T")[0];
-  const monthAgo = new Date(Date.now() - 30*86400000).toISOString().split("T")[0];
+  const _now  = new Date();
+  const today = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,"0")}-${String(_now.getDate()).padStart(2,"0")}`;
+  const _ma   = new Date(Date.now() - 30*86400000);
+  const monthAgo = `${_ma.getFullYear()}-${String(_ma.getMonth()+1).padStart(2,"0")}-${String(_ma.getDate()).padStart(2,"0")}`;
 
   const [reportKey, setReportKey] = useState("arrival");
   const [from, setFrom]           = useState(monthAgo);

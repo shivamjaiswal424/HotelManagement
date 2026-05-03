@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../api";
+import PricingRecommendations from "./PricingRecommendations";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Legend,
@@ -47,7 +48,8 @@ export default function Dashboard() {
   const occupancy      = totalRooms === 0 ? 0 : Math.round((occupiedRooms / totalRooms) * 100);
 
   // Today's check-ins/check-outs
-  const today = new Date().toISOString().split("T")[0];
+  const d = new Date();
+  const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
   const pendingArrivals = reservations.filter(r => r.checkInDate === today && r.status === "BOOKED").length;
   const arrivedToday    = reservations.filter(r => r.checkInDate === today && r.status === "CHECKED_IN").length;
   const todayDepartures = reservations.filter(r => r.checkOutDate === today).length;
@@ -181,6 +183,9 @@ export default function Dashboard() {
             )}
           </div>
         </div>
+
+        {/* Smart Pricing */}
+        <PricingRecommendations />
 
         {/* Recent Reservations */}
         <div className="section-heading">Recent Reservations</div>

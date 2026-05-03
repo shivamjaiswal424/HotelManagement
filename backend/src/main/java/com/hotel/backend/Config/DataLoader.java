@@ -13,12 +13,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+
 @Component
 @RequiredArgsConstructor
 public class DataLoader implements CommandLineRunner {
 
     private final RoomRepository           roomRepository;
-    private final RatePlanRepository       ratePlanRepository;
     private final ReservationRepository    reservationRepository;
     private final ServiceChargeRepository  serviceChargeRepository;
     private final PaymentRepository        paymentRepository;
@@ -40,7 +40,6 @@ public class DataLoader implements CommandLineRunner {
             roomRepository.deleteAll();
         }
         seedRooms();
-        seedRatePlans();
         seedAdminUser();
         if (resetSeed) {
             seedDemoReservations();
@@ -63,21 +62,6 @@ public class DataLoader implements CommandLineRunner {
     private Room room(String number, RoomType type, double price) {
         return Room.builder().roomNumber(number).roomType(type)
                 .roomStatus(RoomStatus.AVAILABLE).basePrice(price).build();
-    }
-
-    // ── Rate Plans ───────────────────────────────────────────────────────────────
-    private void seedRatePlans() {
-        // Replace old meal-plan-suffixed plans (Deluxe CP / EP etc.) with simple room-type plans
-        boolean hasOldFormat = ratePlanRepository.findAll().stream()
-                .anyMatch(rp -> rp.getMealPlan() != null && !rp.getMealPlan().isBlank());
-        if (hasOldFormat) ratePlanRepository.deleteAll();
-
-        if (ratePlanRepository.count() > 0) return;
-
-        ratePlanRepository.saveAll(List.of(
-                RatePlan.builder().name("Deluxe")       .roomType(RoomType.DELUXE)       .build(),
-                RatePlan.builder().name("Super Deluxe") .roomType(RoomType.SUPER_DELUXE) .build()
-        ));
     }
 
     // ── Admin User ───────────────────────────────────────────────────────────────

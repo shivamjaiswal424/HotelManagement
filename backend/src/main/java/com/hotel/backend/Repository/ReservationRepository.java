@@ -36,6 +36,4 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
     // For no-show report (BOOKED but check-in before a given date)
     List<Reservation> findByStatusAndCheckInDateBefore(ReservationStatus status, LocalDate date);
 
-    // For OTA iCal sync — prevent duplicate imports
-    java.util.Optional<Reservation> findByExternalBookingId(String externalBookingId);
 }
